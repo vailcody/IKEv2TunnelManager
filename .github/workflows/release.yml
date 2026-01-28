@@ -1,0 +1,170 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            artifact_name: vpnmanager-linux-amd64
+            
+          - os: linux-arm64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            artifact_name: vpnmanager-linux-arm64
+            
+          - os: macos
+            runner: macos-latest
+            goos: darwin
+            goarch: amd64
+            artifact_name: vpnmanager-macos-amd64
+            
+          - os: macos-arm64
+            runner: macos-latest
+            goos: darwin
+            goarch: arm64
+            artifact_name: vpnmanager-macos-arm64
+            
+          - os: windows
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+            artifact_name: vpnmanager-windows-amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      # Linux dependencies for Fyne
+      - name: Install Linux dependencies
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev \
+            xorg-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libxxf86vm-dev \
+            gcc-aarch64-linux-gnu
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          if [ "${{ matrix.goos }}" = "linux" ] && [ "${{ matrix.goarch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+          fi
+          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o ${{ matrix.artifact_name }} ./cmd/vpnmanager
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          
+          # Move and compress artifacts
+          for dir in artifacts/*/; do
+            filename=$(basename "$dir")
+            if [[ "$filename" == *.exe ]]; then
+              # Windows - zip
+              cd artifacts/$filename
+              zip ../../release/${filename%.exe}.zip $filename
+              cd ../..
+            else
+              # Unix - tar.gz
+              cd artifacts/$filename
+              chmod +x $filename
+              tar -czvf ../../release/${filename}.tar.gz $filename
+              cd ../..
+            fi
+          done
+          
+          ls -la release/
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          echo "## 📦 Downloads" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "| Platform | Architecture | Download |" >> RELEASE_NOTES.md
+          echo "|----------|--------------|----------|" >> RELEASE_NOTES.md
+          echo "| 🐧 Linux | x64 (amd64) | [vpnmanager-linux-amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-linux-amd64.tar.gz) |" >> RELEASE_NOTES.md
+          echo "| 🐧 Linux | ARM64 | [vpnmanager-linux-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-linux-arm64.tar.gz) |" >> RELEASE_NOTES.md
+          echo "| 🍎 macOS | x64 (Intel) | [vpnmanager-macos-amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-macos-amd64.tar.gz) |" >> RELEASE_NOTES.md
+          echo "| 🍎 macOS | ARM64 (Apple Silicon) | [vpnmanager-macos-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-macos-arm64.tar.gz) |" >> RELEASE_NOTES.md
+          echo "| 🪟 Windows | x64 | [vpnmanager-windows-amd64.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-windows-amd64.zip) |" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "## 🚀 Installation" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Linux / macOS" >> RELEASE_NOTES.md
+          echo '```bash' >> RELEASE_NOTES.md
+          echo '# Download and extract' >> RELEASE_NOTES.md
+          echo 'tar -xzvf vpnmanager-<platform>.tar.gz' >> RELEASE_NOTES.md
+          echo '' >> RELEASE_NOTES.md
+          echo '# Make executable (if needed)' >> RELEASE_NOTES.md
+          echo 'chmod +x vpnmanager-*' >> RELEASE_NOTES.md
+          echo '' >> RELEASE_NOTES.md
+          echo '# Run' >> RELEASE_NOTES.md
+          echo './vpnmanager-*' >> RELEASE_NOTES.md
+          echo '```' >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Windows" >> RELEASE_NOTES.md
+          echo "1. Download and extract the ZIP file" >> RELEASE_NOTES.md
+          echo "2. Run \`vpnmanager-windows-amd64.exe\`" >> RELEASE_NOTES.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
