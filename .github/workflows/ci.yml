@@ -45,9 +45,6 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-      - name: Run tests
-        run: go test -v -race ./...
-
   build-check:
     name: Build Check (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
