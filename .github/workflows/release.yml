@@ -21,11 +21,6 @@ jobs:
             goos: linux
             goarch: amd64
             artifact_name: vpnmanager-linux-amd64
-          - os: linux-arm64
-            runner: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            artifact_name: vpnmanager-linux-arm64
           - os: macos
             runner: macos-latest
             goos: darwin
@@ -144,7 +139,6 @@ jobs:
           echo "| Platform | Architecture | Download |" >> RELEASE_NOTES.md
           echo "|----------|--------------|----------|" >> RELEASE_NOTES.md
           echo "| 🐧 Linux | x64 (amd64) | [vpnmanager-linux-amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-linux-amd64.tar.gz) |" >> RELEASE_NOTES.md
-          echo "| 🐧 Linux | ARM64 | [vpnmanager-linux-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-linux-arm64.tar.gz) |" >> RELEASE_NOTES.md
           echo "| 🍎 macOS | x64 (Intel) | [vpnmanager-macos-amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-macos-amd64.tar.gz) |" >> RELEASE_NOTES.md
           echo "| 🍎 macOS | ARM64 (Apple Silicon) | [vpnmanager-macos-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-macos-arm64.tar.gz) |" >> RELEASE_NOTES.md
           echo "| 🪟 Windows | x64 | [vpnmanager-windows-amd64.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/vpnmanager-windows-amd64.zip) |" >> RELEASE_NOTES.md

@@ -24,7 +24,6 @@
 | Платформа | Архитектура | Файл |
 |-----------|-------------|------|
 | 🐧 Linux | x64 | `tunnelmanager-linux-amd64.tar.gz` |
-| 🐧 Linux | ARM64 | `tunnelmanager-linux-arm64.tar.gz` |
 | 🍎 macOS | Intel | `tunnelmanager-macos-amd64.tar.gz` |
 | 🍎 macOS | Apple Silicon | `tunnelmanager-macos-arm64.tar.gz` |
 | 🪟 Windows | x64 | `tunnelmanager-windows-amd64.zip` |
