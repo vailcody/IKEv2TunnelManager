@@ -21,25 +21,21 @@ jobs:
             goos: linux
             goarch: amd64
             artifact_name: vpnmanager-linux-amd64
-            
           - os: linux-arm64
             runner: ubuntu-latest
             goos: linux
             goarch: arm64
             artifact_name: vpnmanager-linux-arm64
-            
           - os: macos
             runner: macos-latest
             goos: darwin
             goarch: amd64
             artifact_name: vpnmanager-macos-amd64
-            
           - os: macos-arm64
             runner: macos-latest
             goos: darwin
             goarch: arm64
             artifact_name: vpnmanager-macos-arm64
-            
           - os: windows
             runner: windows-latest
             goos: windows
@@ -55,6 +51,15 @@ jobs:
         with:
           go-version: '1.24'
           cache: true
+
+      # MSYS2 + GCC for Windows (Fyne requires CGO)
+      - name: Set up MSYS2 (Windows)
+        if: matrix.os == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
 
       # Linux dependencies for Fyne
       - name: Install Linux dependencies
@@ -77,10 +82,17 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
         run: |
+          LDFLAGS="-s -w -X main.Version=${{ github.ref_name }}"
+          
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            LDFLAGS="-H windowsgui -s -w -X main.Version=${{ github.ref_name }}"
+          fi
+
           if [ "${{ matrix.goos }}" = "linux" ] && [ "${{ matrix.goarch }}" = "arm64" ]; then
             export CC=aarch64-linux-gnu-gcc
           fi
-          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o ${{ matrix.artifact_name }} ./cmd/vpnmanager
+
+          go build -ldflags="$LDFLAGS" -o ${{ matrix.artifact_name }} ./cmd/vpnmanager
         shell: bash
 
       - name: Upload artifact
@@ -94,7 +106,6 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -107,7 +118,6 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release
-          
           # Move and compress artifacts
           for dir in artifacts/*/; do
             filename=$(basename "$dir")
@@ -124,7 +134,6 @@ jobs:
               cd ../..
             fi
           done
-          
           ls -la release/
 
       - name: Generate Release Notes

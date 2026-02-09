@@ -10,7 +10,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,7 +57,6 @@ jobs:
             runner: macos-latest
           - os: windows
             runner: windows-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,5 +80,21 @@ jobs:
             libxi-dev \
             libxxf86vm-dev
 
+      - name: Set up MSYS2 (Windows)
+        if: matrix.os == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
+
       - name: Build
-        run: go build -v ./cmd/vpnmanager
+        env:
+          CGO_ENABLED: 1
+        run: |
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            go build -ldflags="-H windowsgui -s -w" -v -o tunnelmanager.exe ./cmd/vpnmanager
+          else
+            go build -v ./cmd/vpnmanager
+          fi
+        shell: bash
